@@ -167,6 +167,7 @@ do
     //畫面往前
     while (stop & gameover)
     {
+        Console.CursorVisible = false;
         GoAhead();
         MapToSB();
         ReplaceConsoleOfSB();
