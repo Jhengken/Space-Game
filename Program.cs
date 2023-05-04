@@ -18,6 +18,7 @@
 
 
 //我使用座標紀錄地圖上的隕石與飛船，然後每秒刷新
+using System.Diagnostics;
 using System.Text;
 
 //調整主控台寬高，限 "Windows"
@@ -29,6 +30,7 @@ Console.CursorVisible = false;
 //基礎值設定
 int width = 20;
 int length = 50;
+int cycle = 1000;
 string[,] strMap2D = new string[length + 2, width + 3];
 int mapX = strMap2D.GetUpperBound(1);
 int mapY = strMap2D.GetUpperBound(0);
@@ -39,6 +41,7 @@ bool stop = true;
 StringBuilder sbMap = new StringBuilder();
 CancellationTokenSource source = new CancellationTokenSource();
 Random rnd = new Random();
+Stopwatch stopWatch = new Stopwatch();
 
 //遊戲說明
 Console.WriteLine("Game Instructions:");
@@ -53,9 +56,9 @@ Console.Clear();
 
 //初始畫面
 Initial();
-MapToSB();
-Console.WriteLine(sbMap.ToString());
 sbMap.Clear();
+MapToSB();
+ReplaceConsoleOfSB();
 var enter = new ConsoleKey();
 
 //測試用
@@ -65,6 +68,7 @@ var enter = new ConsoleKey();
 //Console.WriteLine(stopWatch.ElapsedMilliseconds + "ms");
 
 //開始遊戲
+Thread.Sleep(100);
 do
 {
     //暫停
@@ -80,10 +84,13 @@ do
             WriteAt("    ", mapX / 2 - 2, mapY / 2 + 1);
             WriteAt("    ", mapX / 2 - 2, mapY / 2);
             WriteAt("    ", mapX / 2 - 2, mapY / 2 - 1);
-            stop = !stop;
+            ConsoleMeteorite();
+            StarShipConsole();
+            stop = true;
             source = new CancellationTokenSource();
         }
     }
+
 
     //非同步讀取輸入，上下左右 & 暫停
     _ = Task.Run(() =>
@@ -155,11 +162,12 @@ do
                     break;
                 case ConsoleKey.Spacebar:
                     //暫停
-                    stop = !stop;
                     source.Cancel();
+                    stopWatch.Stop();
+                    stop = false;
                     break;
             }
-            enter = new ConsoleKey();    //清除案的Key
+            enter = new ConsoleKey();   //清除按的Key
         };
     }
     , source.Token);
@@ -167,21 +175,24 @@ do
     //畫面往前
     while (stop & gameover)
     {
-        Console.CursorVisible = false;
-        GoAhead();
-        MapToSB();
-        ReplaceConsoleOfSB();
-        sbMap.Clear();
-        try
+        Console.CursorVisible = false;  //移除滑鼠不小心按到的游標
+        if (await time())     //因為暫停跳出迴圈就不執行並暫停時間
         {
-            await Task.Delay(1000, source.Token);
+            stopWatch.Reset();
+            GoAhead();
+            if (!gameover)
+                break;
+            sbMap.Clear();
+            MapToSB();
+            ReplaceConsoleOfSB();
         }
-        catch (Exception) { }
     }
 
 } while (gameover);
 
+
 //GAME OVER之後
+Thread.Sleep(100);
 Console.ForegroundColor = ConsoleColor.Red;
 WriteAt("Game Over", mapX / 2 - 4, mapY / 2 - 2);
 WriteAt("And", mapX / 2 - 1, mapY / 2);
@@ -190,6 +201,34 @@ Console.ForegroundColor = ConsoleColor.White;
 Console.SetCursorPosition(0, mapY + 1);
 Console.ReadLine();
 source.Dispose();
+
+void ConsoleMeteorite()
+{
+    for (int y = mapY - 1; y >= 1; y--)
+    {
+        //去掉左右外圍星號、數字
+        for (int x = mapX - 2; x >= 1; x--)
+        {
+            if (strMap2D[y, x] == "X")
+            {
+                WriteAt("X", x, y);
+            }
+        }
+    }
+}
+async Task<bool> time()
+{
+    await Task.Run(() =>
+    {
+        stopWatch.Start();
+        while (stopWatch.ElapsedMilliseconds < cycle & stop & gameover) { }
+    }, source.Token);
+
+    if (stop & gameover)
+        return true;
+    else
+        return false;
+}
 
 void ReplaceConsoleOfSB()
 {
