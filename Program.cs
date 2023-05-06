@@ -18,6 +18,7 @@
 
 
 //我使用座標紀錄地圖上的隕石與飛船，然後每秒刷新
+
 using System.Diagnostics;
 using System.Text;
 
@@ -30,12 +31,21 @@ Console.CursorVisible = false;
 //基礎值設定
 int width = 20;
 int length = 50;
-int cycle = 1000;
+int cycle = 500;
+
 string[,] strMap2D = new string[length + 2, width + 3];
 int mapX = strMap2D.GetUpperBound(1);
 int mapY = strMap2D.GetUpperBound(0);
+Dictionary<string, int> borderInside = new Dictionary<string, int>()  //再往內縮一個單位
+{
+    {"Up" , 1 },
+    {"Down" , mapY - 1 },
+    {"Left" , 1 },
+    {"Right" , mapX - 2 },
+};
 int starShipX = mapX / 2;
 int starShipY = mapY - 1;
+
 bool gameover = true;
 bool stop = true;
 StringBuilder sbMap = new StringBuilder();
@@ -91,7 +101,6 @@ do
         }
     }
 
-
     //非同步讀取輸入，上下左右 & 暫停
     _ = Task.Run(() =>
     {
@@ -102,62 +111,30 @@ do
             {
                 case ConsoleKey.RightArrow:
                     //設定界線
-                    if (starShipX < mapX - 2)
+                    if (starShipX < borderInside["Right"])
                     {
-                        //判斷有沒有撞隕石
-                        if (strMap2D[starShipY, starShipX + 1] == "X")
-                        {
-                            gameover = false;
-                            source.Cancel();
-                        }
-                        WriteAt(" ", starShipX, starShipY);
-                        starShipX += 1;
-                        StarShipConsole();
+                        StarShipMove("x",1);
                     }
                     break;
                 case ConsoleKey.LeftArrow:
                     //設定界線
-                    if (starShipX > 1)
+                    if (starShipX > borderInside["Left"])
                     {
-                        //判斷有沒有撞隕石
-                        if (strMap2D[starShipY, starShipX - 1] == "X")
-                        {
-                            gameover = false;
-                            source.Cancel();
-                        }
-                        WriteAt(" ", starShipX, starShipY);
-                        starShipX -= 1;
-                        StarShipConsole();
+                        StarShipMove("x", -1);
                     }
                     break;
                 case ConsoleKey.UpArrow:
                     //設定界線
-                    if (starShipY > 1)
+                    if (starShipY > borderInside["Up"])
                     {
-                        //判斷有沒有撞隕石
-                        if (strMap2D[starShipY - 1, starShipX] == "X")
-                        {
-                            gameover = false;
-                            source.Cancel();
-                        }
-                        WriteAt(" ", starShipX, starShipY);
-                        starShipY -= 1;
-                        StarShipConsole();
+                        StarShipMove("y", -1);
                     }
                     break;
                 case ConsoleKey.DownArrow:
                     //設定界線
-                    if (starShipY < mapY - 1)
+                    if (starShipY < borderInside["Down"])
                     {
-                        //判斷有沒有撞隕石
-                        if (strMap2D[starShipY + 1, starShipX] == "X")
-                        {
-                            gameover = false;
-                            source.Cancel();
-                        }
-                        WriteAt(" ", starShipX, starShipY);
-                        starShipY += 1;
-                        StarShipConsole();
+                        StarShipMove("y", 1);
                     }
                     break;
                 case ConsoleKey.Spacebar:
@@ -180,16 +157,16 @@ do
         {
             stopWatch.Reset();
             GoAhead();
-            if (!gameover)
-                break;
             sbMap.Clear();
             MapToSB();
             ReplaceConsoleOfSB();
+            StarShipConsole();
+            if (!gameover)
+                break;
         }
     }
 
 } while (gameover);
-
 
 //GAME OVER之後
 Thread.Sleep(100);
@@ -201,6 +178,35 @@ Console.ForegroundColor = ConsoleColor.White;
 Console.SetCursorPosition(0, mapY + 1);
 Console.ReadLine();
 source.Dispose();
+
+void StarShipMove(string axis, int move)
+{
+    //判斷x軸、y軸
+    if (axis == "x")
+    {
+        //判斷有沒有撞隕石
+        if (strMap2D[starShipY, starShipX + move] == "X")
+        {
+            gameover = false;
+            source.Cancel();
+        }
+        WriteAt(" ", starShipX, starShipY);
+        starShipX += move;
+        StarShipConsole();
+    }
+    else
+    {
+        //判斷有沒有撞隕石
+        if (strMap2D[starShipY + move, starShipX] == "X")
+        {
+            gameover = false;
+            source.Cancel();
+        }
+        WriteAt(" ", starShipX, starShipY);
+        starShipY += move;
+        StarShipConsole();
+    }
+}
 
 void ConsoleMeteorite()
 {
@@ -216,6 +222,7 @@ void ConsoleMeteorite()
         }
     }
 }
+
 async Task<bool> time()
 {
     await Task.Run(() =>
@@ -272,50 +279,65 @@ void ReplaceConsole()
     }
 }
 
+//地圖向上，畫面往下移動
 void GoAhead()
 {
-    //地圖向上，畫面往下移動
-
     //去掉上下外圍星號，且最上面(先清掉再放障礙物)，還有判斷飛船有沒有撞到
     for (int y = mapY - 1; y >= 1; y--)
     {
         //去掉左右外圍星號、數字
         for (int x = mapX - 2; x >= 1; x--)
         {
-            if (x == starShipX & y == starShipY+1) { } else { }
-                if (y == 1)
+            //第一排之外都往下一個單位
+            if (y == 1)
             {
-                //清掉第一排放置的障礙物
-                strMap2D[y, x] = " ";
+                
             }
+            //第二排之後，看有沒有撞到隕石
             else if (x == starShipX & y == starShipY & strMap2D[y - 1, x] == "X")
             {
                 //飛船撞到
                 gameover = false;
                 source.Cancel();
             }
+            //往下移
             else
             {
-                //往下移，但忽略飛船
+                //但忽略飛船
                 if (x == starShipX & y == starShipY)
                 {
                     strMap2D[y, x] = "^";
-                    StarShipConsole();
+                    //StarShipConsole();
+                }
+                else if (strMap2D[y - 1, x] == "^")
+                {
+                    //位置上面是飛船，這個位置就略過 
                 }
                 else
-                    if (strMap2D[y - 1, x] == "^")
-                        { }
-                    else
-                        strMap2D[y, x] = strMap2D[y - 1, x];
+                    strMap2D[y, x] = strMap2D[y - 1, x];
             }
         }
     }
 
-    //障礙物，會有接近1/4的機率出現障礙物
-    int meteoriteY = rnd.Next(0, mapX * 4);
-    if (meteoriteY < mapX - 2 & meteoriteY > 1)
+    //第一排，出現隕石，並判斷有沒有撞到飛船
+    //清掉第一排放置的障礙物，除了飛船
+    for (int x = mapX - 2; x >= 1; x--)
     {
-        strMap2D[1, meteoriteY] = "X";
+        if (starShipX ==  x & starShipY == 1)
+            strMap2D[1, x] = "^";
+        else
+            strMap2D[1, x] = " ";
+    }
+    //出現障礙物，並判斷障礙物出現的地方有沒有撞到飛船
+    int meteoriteX = rnd.Next(0, mapX * 3);
+    if (meteoriteX < mapX - 2 & meteoriteX > 1)
+    {
+        strMap2D[1, meteoriteX] = "X";
+        if (starShipX == meteoriteX & starShipY == 1)
+        {
+            gameover = false;
+            source.Cancel();
+        }
     }
 
     //數字改變
