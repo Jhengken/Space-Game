@@ -164,8 +164,18 @@ public class Program
                     GoAhead();
                     sbMap.Clear();
                     MapToSB();
-                    ReplaceConsoleOfSB();
-                    StarShipConsole();
+                    Monitor.Enter(p);
+                    try
+                    {
+                        ReplaceConsoleOfSB();
+                        StarShipConsole();
+
+                    }
+                    finally
+                    {
+                        Monitor.Exit(p);
+
+                    }
                     if (!gameover)
                         break;
                 }
@@ -186,31 +196,40 @@ public class Program
 
         void StarShipMove(string axis, int move)
         {
-            //判斷x軸、y軸
-            if (axis == "x")
+            Monitor.Enter(p);
+            try
             {
-                //判斷有沒有撞隕石
-                if (strMap2D[starShipY, starShipX + move] == "X")
+                //判斷x軸、y軸
+                if (axis == "x")
                 {
-                    gameover = false;
-                    source.Cancel();
+                    //判斷有沒有撞隕石
+                    if (strMap2D[starShipY, starShipX + move] == "X")
+                    {
+                        gameover = false;
+                        source.Cancel();
+                    }
+                    p.WriteAt(" ", starShipX, starShipY);
+                    starShipX += move;
+                    StarShipConsole();
                 }
-                p.WriteAt(" ", starShipX, starShipY);
-                starShipX += move;
-                StarShipConsole();
+                else
+                {
+                    //判斷有沒有撞隕石
+                    if (strMap2D[starShipY + move, starShipX] == "X")
+                    {
+                        gameover = false;
+                        source.Cancel();
+                    }
+                    p.WriteAt(" ", starShipX, starShipY);
+                    starShipY += move;
+                    StarShipConsole();
+                }
             }
-            else
+            finally
             {
-                //判斷有沒有撞隕石
-                if (strMap2D[starShipY + move, starShipX] == "X")
-                {
-                    gameover = false;
-                    source.Cancel();
-                }
-                p.WriteAt(" ", starShipX, starShipY);
-                starShipY += move;
-                StarShipConsole();
+                Monitor.Exit(p);
             }
+           
         }
 
         void ConsoleMeteorite()
@@ -387,15 +406,24 @@ public class Program
 
     void WriteAt(string s, int x, int y)
     {
-        Monitor.Enter(this);
-        try
-        {
-            Console.SetCursorPosition(x, y);
-            Console.Write(s);
-        }
-        finally
-        {
-            Monitor.Exit(this);
-        }
+        //目前選擇直接在飛船移動(StarShipMove)
+        //還有整體顯示(ReplaceConsoleOfSB)那邊做鎖
+
+        //lock (this)  //語法糖
+        //{
+        Console.SetCursorPosition(x, y);
+        Console.Write(s);
+        //}
+
+        //Monitor.Enter(this);
+        //try
+        //{
+        //    Console.SetCursorPosition(x, y);
+        //    Console.Write(s);
+        //}
+        //finally
+        //{
+        //    Monitor.Exit(this);
+        //}
     }
 }
